@@ -1,0 +1,450 @@
+*************************************************************************
+
+GlobalAverage
+--------------
+input : ratings files
+
+Mapper
+--------
+let map(k,v) = 
+	foreach line in stdin:
+		data = split the line on "::" to get(userid, movieid, rating)
+		emit("GAvg: " + rating)
+
+Output:"GAvg: " + rating
+
+Reducer
+---------
+current_key = null
+count = 0
+sum = 0
+let reduce(k,vals) = 
+	foreach line in stdin:
+		Split line into a list to get(key and val)
+		if current_key != null and current_key != key:
+			avg = sum/count
+			emit(current_key + " " + avg)
+			sum = 0
+			count = 0
+		else
+			count = count+1
+			sum = sum + val
+			current_key = key
+	global_avg = sum/count
+	emit("GAvg: " + global_avg)
+
+Output:"GAvg: " + global_avg
+
+*************************************************************************
+
+*************************************************************************
+
+UserAverage
+--------------
+input : ratings files
+
+Mapper
+--------
+dictionary userRatings = new dictionary()
+
+let map(k,v) = 
+	foreach line in stdin:
+		data = split the line on "::" to get(userid, movieid, rating)
+		addToDictionary(userid, rating)
+	emitUserRatings()
+
+let addToDictionary(userid, rating):
+	if !(userid in dictioanry userRatings):
+		create a list and add rating to it.
+		add this list to dictionary userRatings for that userid
+	else:
+		append the rating for the userid to the existing list value.
+
+let emitUserRatings():
+	foreach userid in dictioanry userRatings:
+		ratingStr = create a space-seperated string of ratings for that userid
+		emit("URat " + userid + " " + ratingStr)
+
+Output:"URat " + userid + " " + ratingStr
+
+Reducer
+---------
+current_key = null
+count = 0
+sum = 0
+highestUser = 0
+let reduce(k,vals) = 
+	foreach line in stdin:
+		Split line into a list only for first two spaces
+		userid = data[1]
+		ratings = data[2] // this is a space-separated string of ratings for that user
+
+		key = userid
+		if current_key != null and current_key != key:
+			avg = sum/count
+			emit(current_key + " " + avg)
+			sum = 0
+			count = 0
+			if userid > highestUser:
+				highestUser = userid
+		ratingsLst = split ratings into a list.
+		foreach rating in ratingsLst:
+			count = count + 1
+			sum = sum + rating
+			current_key = key
+	user_avg = sum/count
+	emit(current_key + " " + user_avg)
+	emit("HighestUser " + highestUser)
+
+Output:	userid1 userid1_avg
+	userid2	userid2_avg
+	...
+	HighestUser highestUser
+
+*************************************************************************
+
+*************************************************************************
+
+MovieAverage
+--------------
+input : ratings files
+
+Mapper
+--------
+dictionary movieRatings = new dictionary()
+
+let map(k,v) = 
+	foreach line in stdin:
+		data = split the line on "::" to get(userid, movieid, rating)
+		addToDictionary(movieid, rating)
+	emitMovieRatings()
+
+let addToDictionary(movieid, rating):
+	if !(movieid in dictioanry movieRatings):
+		create a list and add rating to it.
+		add this list to dictionary movieRatings for that movieid
+	else:
+		append the rating for the movieid to the existing list value.
+
+let emitMovieRatings():
+	foreach movieid in dictioanry movieRatings:
+		ratingStr = create a space-seperated string of ratings for that movieid
+		emit("MRat " + movieid + " " + ratingStr)
+
+Output:"MRat " + movieid + " " + ratingStr
+
+Reducer
+---------
+current_key = null
+count = 0
+sum = 0
+highestMovie = 0
+let reduce(k,vals) = 
+	foreach line in stdin:
+		Split line into a list only for first two spaces
+		movieid = data[1]
+		ratings = data[2] // this is a space-separated string of ratings for that movie
+
+		key = movieid
+		if current_key != null and current_key != key:
+			avg = sum/count
+			emit(current_key + " " + avg)
+			sum = 0
+			count = 0
+			if movieid > highestMovie:
+				highestMovie = movieid
+		ratingsLst = split ratings into a list.
+		foreach rating in ratingsLst:
+			count = count + 1
+			sum = sum + rating
+			current_key = key
+	movie_avg = sum/count
+	emit(current_key + " " + movie_avg)
+	emit("HighestMovie " + highestMovie)
+
+Output:	movieid1 movieid1_avg
+	movieid2 movieid2_avg
+	...
+	HighestMovie highestMovie
+
+*************************************************************************
+
+*************************************************************************
+
+Initial UV Matrix
+------------------
+input: 	a) ratings file
+	b) globalAverage file
+	c) userAverage file
+	d) movieAverage file
+
+Mapper
+-----------
+dictionary userAvgRatings = new dictionary()
+dictionary movieAvgRatings = new dictionary()
+
+let initializeUserAvgRatings() = 
+	open(userRatings_Avg.txt) file
+	foreach line in file:
+		Split line into data (userid, and userAvgRating)
+		if userid != "HighestUser":
+			userAvgRatings[userid] = userAvgRating
+
+let initializeMovieAvgRatings() = 
+	open(movieRatings_Avg.txt) file
+	foreach line in file:
+		Split line into data (movieid, and movieAvgRating)
+		if movieid != "HighestMovie":
+			movieAvgRatings[movieid] = movieAvgRating
+
+let map(k,v) = 
+	initializeUserAvgRatings()
+	initializeMovieAvgRatings()
+	foreach line in stdin:
+		data = split the line on "::" to get(userid, movieid, rating)
+		normRating = rating - (0.5*userAvgRatings[userId]) - (0.5*movieAvgRatings[movieId])
+		emit("NV "+ userid + " " + movieid + " " + normRating)
+
+Output: "NV "+ userid + " " + movieid + " " + normRating
+
+
+Reducer
+-----------
+latentFactors = 5 # latent factors
+alpha = 0.040 #learning rate
+lambda_val = 0.3 # regularixation factor
+users = 0
+movies = 0
+
+let getHighestUserCount():
+	open(userRatings_Avg.txt) file
+	for line in userAvgFile:
+		read the HighestUser value and store it in users
+
+let getHighestMovieCount():
+	open(movieRatings_Avg.txt) file
+	for line in movieAvgFile:
+		read the HighestMovie value and store it in movies
+
+let emitUMatrix():
+	count = 0
+	foreach uMatRow in UMat:
+		urowVals = create a space-seperated string of ratings for that movieid
+		emit("U " + count + " " + latentFactors + " " + urowVals)
+		count += 1
+
+let emitVMatrix():
+	count = 0
+	foreach vMatRow in VMat:
+		vrowVals = create a space-seperated string of ratings for that movieid
+		emit("V " + count + " " + latentFactors + " " + vrowVals)
+		count += 1
+
+let reduce(k,vals)=
+	getHighestUserCount()
+	getHighestMovieCount()
+	
+	UMat = initialize with random values
+	VMat = initialize with random values
+	
+	foreach line in stdin:
+		Split the line into (userid, movieid, normRating)
+		error = normRating - (dot product of UMat[userid] and VMat[movieid])
+		foreach latenfactor:
+			Update UMat using UMat_current_Val, alpha, error, lambda and VMat
+			Update VMat using VMat_current_Val, alpha, error, lambda and UMat
+
+	emitUMatrix()
+	emitVMatrix()
+		
+Output: "U " + rowNum + " " + TotalCols + " " + urowVals
+	...
+	...
+	"V " + rowNum + " " + TotalCols + " " + vrowVals
+	...
+	...
+
+*************************************************************************
+
+*************************************************************************
+
+Updating U and V Matrices
+----------------------------
+input: 	a) ratings file
+	b) globalAverage file
+	c) userAverage file
+	d) movieAverage file
+	e) previous UVMat file
+
+Mapper
+--------
+dictionary userAvgRatings = new dictionary()
+dictionary movieAvgRatings = new dictionary()
+
+let initializeUserAvgRatings() = 
+	open(userRatings_Avg.txt) file
+	foreach line in file:
+		Split line into data (userid, and userAvgRating)
+		if userid != "HighestUser":
+			userAvgRatings[userid] = userAvgRating
+
+let initializeMovieAvgRatings() = 
+	open(movieRatings_Avg.txt) file
+	foreach line in file:
+		Split line into data (movieid, and movieAvgRating)
+		if movieid != "HighestMovie":
+			movieAvgRatings[movieid] = movieAvgRating
+
+let map(k,v) = 
+	initializeUserAvgRatings()
+	initializeMovieAvgRatings()
+	foreach line in stdin:
+		data = split the line on "::" to get(userid, movieid, rating)
+		normRating = rating - (0.5*userAvgRatings[userId]) - (0.5*movieAvgRatings[movieId])
+		emit("NV "+ userid + " " + movieid + " " + normRating)
+
+Output: "NV "+ userid + " " + movieid + " " + normRating
+
+
+Reducer
+--------
+latentFactors = 5 # latent factors
+alpha = 0.040 #learning rate
+lambda_val = 0.3 # regularixation factor
+users = 0
+movies = 0
+
+let emitUMatrix():
+	count = 0
+	foreach uMatRow in UMat:
+		urowVals = create a space-seperated string of ratings for that movieid
+		emit("U " + count + " " + latentFactors + " " + urowVals)
+		count += 1
+
+let emitVMatrix():
+	count = 0
+	foreach vMatRow in VMat:
+		vrowVals = create a space-seperated string of ratings for that movieid
+		emit("V " + count + " " + latentFactors + " " + vrowVals)
+		count += 1
+
+let getHighestUserCount():
+	open(userRatings_Avg.txt) file
+	for line in userAvgFile:
+		read the HighestUser value and store it in users
+
+let getHighestMovieCount():
+	open(movieRatings_Avg.txt) file
+	for line in movieAvgFile:
+		read the HighestMovie value and store it in movies
+
+let reduce(k,vals)=
+	users = getHighestUserCount()
+	movies = getHighestMovieCount()
+	
+	Read the UVMat.txt file and initialize the U and V matrices with values from the file.
+	
+	foreach line in stdin:
+		Split the line into (userid, movieid, normRating)
+		error = normRating - (dot product of UMat[userid] and VMat[movieid])
+		
+		// Gradient Descent formula to update U and V Matrices
+		foreach latenfactor:
+			Update UMat using UMat_current_Val, alpha, error, lambda and VMat
+			Update VMat using VMat_current_Val, alpha, error, lambda and UMat
+
+	emitUMatrix()
+	emitVMatrix()
+
+Output: "U " + rowNum + " " + TotalCols + " " + urowVals
+	...
+	...
+	"V " + rowNum + " " + TotalCols + " " + vrowVals
+	...
+	...
+
+*************************************************************************
+
+*************************************************************************
+
+Calculate RMSE
+----------------
+input: 	a) ratings file
+	b) globalAverage file
+	c) userAverage file
+	d) movieAverage file
+	e) final UVMat file
+
+Mapper
+-------
+dictionary userAvgRatings = new dictionary()
+dictionary movieAvgRatings = new dictionary()
+
+let initializeGlobalAvgRatings() = 
+	open(globalAvg.txt) file
+	foreach line in file:
+		Split line into data (tag, and globalAvgRating)
+		set the globalAvgRating
+
+let initializeUserAvgRatings() = 
+	open(userRatings_Avg.txt) file
+	foreach line in file:
+		Split line into data (userid, and userAvgRating)
+		if userid != "HighestUser":
+			userAvgRatings[userid] = userAvgRating
+		if userid == "HighestUser":
+			users = userAvgRating
+
+let initializeMovieAvgRatings() = 
+	open(movieRatings_Avg.txt) file
+	foreach line in file:
+		Split line into data (movieid, and movieAvgRating)
+		if movieid != "HighestMovie":
+			movieAvgRatings[movieid] = movieAvgRating
+		if movieid == "HighestMovie":
+			movies = movieAvgRating
+
+let map(k,v) = 
+	globalAvgRating = initializeGlobalAvgRatings()
+	users = initializeUserAvgRatings()
+	movies = initializeMovieAvgRatings()
+
+	Read the UVMat.txt file and initialize the U and V matrices with values from the file.
+
+	foreach line in stdin:
+		data = split the line on "::" to get(userid, movieid, rating)
+
+		if userid not in the userAvgRatings
+			userAvgRatings[userid] = globalAvgRating
+		if movieid not in movieAvgRatings
+			movieAvgRatings[movieid] = globalAvgRating
+
+		estimated_norm_rating = 0
+		UMatRowCnt = get row count for U matrix
+		VMatRowCnt = get row count for V matrix
+		if userid < UMatRowCnt or movieId < VMatRowCnt:
+			estimated_norm_rating = dot product of UMat[userid] and VMat[movieid]
+
+		unnormalizedRating = estimated_norm_rating + (0.5*userAvgRatings[userid]) + (0.5*movieAvgRatings[movieid])
+		emit("RMSE " + userId + " " + movieId + " " + rating + " " + unnormalized_rating)
+
+Output: "NV "+ userid + " " + movieid + " " + normRating
+
+Reducer
+--------
+let reduce(k,vals)=
+	Split the lines and get(userid, movieid, rating and unnormalizedRating)
+	Compute the error_unnormalized = rating - unnormalizedRating
+	
+	//Compute SSE
+	unnormalizedSSE = unnormalizedSSE + error_unnormalized * error_unnormalized
+	
+	nCount++
+//Compute SSE
+unnormalizedRMSE = sqrt(unnormalizedSSE/nCount)
+
+emit("unnormalizedRMSE " + unnormalizedRMSE)
+
+
+Output: "unnormalizedRMSE " + unnormalizedRMSE
+*************************************************************************

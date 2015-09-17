@@ -1,0 +1,28 @@
+For 10M file:
+---------------
+
+a) r1
+------
+train ---> RMSE = 0.879
+test  ---> RMSE = 0.875
+
+b) r2
+------
+train ---> RMSE = 0.885
+test  ---> RMSE = 0.877
+
+c) r3
+------
+train ---> RMSE = 0.890
+test  ---> RMSE = 0.881
+
+d) r4
+------
+train ---> RMSE = 0.895
+test  ---> RMSE = 0.883
+
+e) r5
+------
+train ---> RMSE = 0.874
+test  ---> RMSE = 0.870
+
