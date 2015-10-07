@@ -2,6 +2,15 @@
 '''
 Created on Apr 15, 2015
 @author: Jatin
+
+
+output: 
+NV userid movieid normalizedRating
+
+eg:
+NV 134 235 0.632123
+
+NV => normalized value
 '''
 
 import sys
