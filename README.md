@@ -1,4 +1,4 @@
-# RecommenderSystem
+# Recommender System
 Created a Recommender system based on Products of Factors technique
 
 ### Data
